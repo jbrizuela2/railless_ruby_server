@@ -1,4 +1,5 @@
 require "socket"
+require "date"
 
 class Request
   attr_reader :headers, :verb, :path, :data
@@ -34,6 +35,33 @@ class Request
   end
 end
 
+class Response
+  attr_reader :status, :headers, :response
+
+  DEFAULT_HEADERS = {
+    "Content-Type": "text/plain",
+    "Connection": "close"
+  }.freeze
+
+  def initialize(status: 200, headers: {}, response: "")
+    @status = status
+    @headers = DEFAULT_HEADERS.merge(headers)
+    @headers["Content-Length"] = response.bytesize
+    @response = response
+  end
+
+  def render
+    data = ["HTTP/1.1 #{status} OK"]
+    data = (data + headers.map{|header, value| "#{headers}: #{value }"}).uniq
+    data.push("")
+    data.push(response)
+
+    data.join("\r\n")
+  end
+end
+
+
+
 host = ENV["BIND_ADDRESS"] || "localhost"
 port = ENV["PORT"] ? ENV["PORT"].to_i : 2345
 
@@ -50,16 +78,10 @@ loop do
 
   STDERR.puts "------------------"
 
-  response = "Hola desde Ruby\n"
-  session.print <<~RESPONSE
-  HTTP/1.1 200 OK
-  Content-Type: text/plain
-  Content-Length: #{response.bytesize}
-  Connection: close
-  RESPONSE
-
-  session.print "\r\n"
-  session.print response
+  data = "Hola desde Ruby"
+  
+  response = Response.new(response: data)
+  session.print(response.render)
 
   session.close
 end
